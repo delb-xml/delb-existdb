@@ -360,7 +360,7 @@ class ExistClient:
             )
 
         return cls(
-            **{
+            **{  # type: ignore
                 "host": host,
                 "parser_options": parser_options,
                 "password": password,
