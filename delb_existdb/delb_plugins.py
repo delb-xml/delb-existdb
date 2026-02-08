@@ -207,10 +207,10 @@ class ExistDBExtension(DocumentMixinBase):
         :param replace_existing: Allows to overwrite existing documents.
         """
 
-        client = self.config.existdb.client
-        if collection is None:
-            # FIXME rather associate new client object with new collection
-            collection = self.existdb_collection
+        if collection is not None:
+            self.config.existdb.client = client = (
+                self.config.existdb.client._get_altered_client(collection=collection)
+            )
         else:
             client = self.config.existdb.client
 
@@ -222,7 +222,8 @@ class ExistDBExtension(DocumentMixinBase):
 
         if not replace_existing and http_client.head(url).status_code == 200:
             raise DelbExistdbWriteError(
-                "Document already exists. Overwriting must be allowed explicitly."
+                "Document already exists. "
+                "Overwriting must be allowed explicitly with `replace_existing`."
             )
 
         response = http_client.put(
@@ -236,7 +237,3 @@ class ExistDBExtension(DocumentMixinBase):
             raise DelbExistdbWriteError("Unhandled error while storing.") from e
         if not response.status_code == 201:
             raise DelbExistdbWriteError(f"Unexpected response: {response}")
-
-        # FIXME rather associate new client object with new collection
-        self.existdb_collection = collection
-        self.existdb_filename = filename
