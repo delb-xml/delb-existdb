@@ -123,16 +123,13 @@ for $node in @expression return
   s:nodeID="{util:node-id($node)}"
   s:path="{DOCUMENT_PATH}"
 >{$node}</s:result>
-""".replace(
-        "DOCUMENT_PATH", DOCUMENT_PATH_OF_NODE
-    ).replace(
+""".replace("DOCUMENT_PATH", DOCUMENT_PATH_OF_NODE).replace(
         "DELB_EXISTDB_NAMESPACE", DELB_EXISTDB_NAMESPACE
     )
 )
 
 
-XQUERY_PAYLOAD: Final = QueryTemplate(
-    """\
+XQUERY_PAYLOAD: Final = QueryTemplate("""\
 <query xmlns="EXISTDB_NAMESPACE" start="1" max="0" cache="no">
   <text><![CDATA[@query]]></text>
   <properties>
@@ -140,10 +137,7 @@ XQUERY_PAYLOAD: Final = QueryTemplate(
     <property name="wrap" value="yes"/>
   </properties>
 </query>
-""".replace(
-        "EXISTDB_NAMESPACE", EXISTDB_NAMESPACE
-    )
-)
+""".replace("EXISTDB_NAMESPACE", EXISTDB_NAMESPACE))
 
 
 # utils
