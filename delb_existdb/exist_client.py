@@ -24,6 +24,20 @@ from delb_existdb.exceptions import (
 
 if TYPE_CHECKING:
     from delb import Document
+#
+
+
+# TODO use a typed dict
+class ClientConfig(NamedTuple):
+    base_url: str
+    host: str
+    parser_options: ParserOptions
+    password: str
+    port: int
+    prefix: str
+    root_collection: str
+    transport: str
+    user: str
 
 
 class QueryResultItem(NamedTuple):
@@ -37,15 +51,9 @@ class QueryTemplate(Template):
     delimiter = "@"
 
 
-class ConnectionProps(NamedTuple):
-    transport: str
-    user: str
-    password: str
-    host: str
-    port: int
-    prefix: PurePosixPath
+#
 
-
+# TODO allow configuration with environment variables
 DEFAULT_TRANSPORT: Final = "http"
 DEFAULT_HOST: Final = "localhost"
 DEFAULT_PORT: Final = 8080
@@ -55,6 +63,8 @@ EXISTDB_NAMESPACE: Final = "http://exist.sourceforge.net/NS/exist"
 DELB_EXISTDB_NAMESPACE: Final = "https://delb-existdb.readthedocs.io/"
 TRANSPORT_PROTOCOLS: Final = {"https": 443, "http": 80}  # the order matters!
 
+
+#
 
 # QUERY TEMPLATES
 #
@@ -252,25 +262,28 @@ class ExistClient:
                 "The parsers argument isn't used anymore. Parsers are derived from the "
                 "provided `parser_options`."
             )
-        self.__connection_props = ConnectionProps(
+
         _prefix = _strip_outer_path_separators(prefix)
+        if root_collection == ".":
+            root_collection = ""
+        root_collection = f"/{_strip_outer_path_separators(root_collection)}"
+
+        self.__config: Final = ClientConfig(
+            base_url=f"{transport}://{user}:{password}@{host}:{port}/{_prefix}",
             transport=transport,
-            user=user,
-            password=password,
             host=host,
             port=port,
+            user=user,
+            password=password,
             prefix=_prefix,
+            root_collection=root_collection,
+            parser_options=(
+                ParserOptions(encoding="UTF-8", reduce_whitespace=True)
+                if parser_options is None
+                else parser_options._replace(encoding="UTF-8")
+            ),
         )
-        self.__base_url = f"{transport}://{user}:{password}@{host}:{port}/{_prefix}"
-        self.http_client = httpx.Client(http2=True)
-        if parser_options is None:
-            self.parser_options = ParserOptions(
-                encoding="UTF-8", reduce_whitespace=True
-            )
-        else:
-            self.parser_options = parser_options._replace(encoding="UTF-8")
-        # TODO add rest_url (rest endpoint w/o collection)
-        self.root_collection = root_collection
+        self.http_client: Final = httpx.Client(http2=True)
 
     @classmethod
     def from_url(
@@ -278,7 +291,7 @@ class ExistClient:
         url: str,
         parser=None,  # REMOVE eventually
         parser_options: Optional[ParserOptions] = None,
-    ) -> "ExistClient":
+    ) -> ExistClient:
         """
         Returns a client instance from the given URL. Path parts that point to something
         beyond the database instance's path prefix are ignored.
@@ -387,41 +400,44 @@ class ExistClient:
         else:
             return None
 
-    # REMOVE?
     @property
     def base_url(self) -> str:
         """The base URL pointing to the eXist instance."""
-        return self.__base_url
+        return self.__config.base_url
 
     @property
     def transport(self) -> str:
         """The used transport protocol."""
-        return self.__connection_props.transport
+        return self.__config.transport
 
     @property
     def host(self) -> str:
         """The database hostname."""
-        return self.__connection_props.host
+        return self.__config.host
 
     @property
     def port(self) -> int:
         """The database port number."""
-        return self.__connection_props.port
+        return self.__config.port
 
     @property
     def user(self) -> str:
         """The user name used to connect to the database."""
-        return self.__connection_props.user
+        return self.__config.user
+
+    @property
+    def parser_options(self) -> ParserOptions:
+        return self.__config.parser_options
 
     @property
     def password(self) -> str:
         """The password used to connect to the database."""
-        return self.__connection_props.password
+        return self.__config.password
 
     @property
     def prefix(self) -> str:
         """The URL prefix of the database."""
-        return str(self.__connection_props.prefix)
+        return str(self.__config.prefix)
 
     @property
     def root_collection(self) -> str:
@@ -429,23 +445,14 @@ class ExistClient:
         The root collection for database queries. The attribute can be changed on an
         initialized client.
         """
-        return str(self.__root_collection)
-
-    # FIXME this shouldn't be possible
-    @root_collection.setter
-    def root_collection(self, path: str):
-        self.__root_collection = _mangle_path(path)
+        return self.__config.root_collection
 
     @property
     def root_collection_url(self) -> str:
         """
         The URL pointing to the configured root collection.
         """
-        result = f"{self.__base_url}/rest/{self.__root_collection}"
-        if result.endswith("/."):
-            return result[:-2]
-        else:
-            return result
+        return f"{self.__config.base_url}/rest{self.__config.root_collection}"
 
     # TODO rename to xquery
     def query(self, query_expression: str) -> TagNodeType:
