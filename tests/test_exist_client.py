@@ -13,10 +13,10 @@ from delb_existdb.exceptions import DelbExistdbConfigError, DelbExistdbNotFound
 def test_delete_document(rest_base_url, test_client):
     Document(
         '<example id="t5">i am to be deleted</example>', existdb_client=test_client
-    ).existdb_store(collection="/bar", filename="foo.xml")
-    test_client.delete_document("/bar/foo.xml")
+    ).existdb_store(filepath="foo.xml")
+    test_client.delete_document("foo.xml")
     with pytest.raises(FailedDocumentLoading):
-        Document("/bar/foo.xml", existdb_client=test_client)
+        Document("foo.xml", existdb_client=test_client)
 
     with pytest.raises(DelbExistdbNotFound):
         test_client.delete_document("/not_exist.xml")
@@ -26,7 +26,7 @@ def test_delete_node(rest_base_url, test_client):
     Document(
         '<example id="t4">i stay<deletee> and i am to be deleted</deletee></example>',
         existdb_client=test_client,
-    ).existdb_store(filename="foo.xml")
+    ).existdb_store(filepath="foo.xml")
 
     xq = "let $node := //deletee return util:absolute-resource-id($node)"
     abs_res_id = httpx.get(f"{rest_base_url}&_query={xq}").content.decode()
@@ -79,7 +79,7 @@ def test_query_with_lengthy_contents(test_client):
     Document(
         f'<example id="t8"><p>{long_paragraph}</p></example>',
         existdb_client=test_client,
-    ).existdb_store(filename="the_long_dada.xml")
+    ).existdb_store(filepath="the_long_dada.xml")
 
     retrieved_nodes = test_client.xpath(f'//p[contains(., "{long_paragraph}")]')
     assert len(retrieved_nodes) == 1
@@ -100,7 +100,7 @@ def test_update_node(sample_document, test_client):
         node_id=resource.node_id,
     )
 
-    document = test_client.fetch_document(sample_document.existdb_filename)
+    document = test_client.fetch_document(sample_document.existdb_filepath)
     assert str(document.root) == "<root><updatedNode/></root>"
 
 
@@ -139,9 +139,9 @@ def test_xpath(test_client):
     paragraph_2 = "<x>retrieve me too!</x>"
     Document(
         f'<example id="t7">{paragraph_1}</example>', existdb_client=test_client
-    ).existdb_store(filename="document_1.xml")
+    ).existdb_store(filepath="document_1.xml")
     Document(paragraph_2, existdb_client=test_client).existdb_store(
-        filename="document_2.xml"
+        filepath="document_2.xml"
     )
 
     retrieved_nodes = test_client.xpath("//x")

@@ -6,16 +6,18 @@ from delb_existdb.exceptions import DelbExistdbConfigError, DelbExistdbWriteErro
 
 
 def test_delete_document(test_client):
-    filename = "delete_document.xml"
+    filepath = "delete_document.xml"
     document = Document("<delete/>", existdb_client=test_client)
-    document.existdb_store(filename=filename)
+    document.existdb_store(filepath=filepath)
     document.existdb_delete()
     with pytest.raises(FailedDocumentLoading):
-        Document(f"existdb://admin:@localhost:8080/exist/db/tests/{filename}")
+        Document(f"existdb://admin:@localhost:8080/exist/db/tests/{filepath}")
 
 
-def test_filename(sample_document):
-    assert sample_document.existdb_filename == "sample.xml"
+def test_filepath(sample_document):
+    assert sample_document.existdb_filepath == "sample.xml"
+    sample_document.existdb_filepath = "test.xml"
+    assert sample_document.existdb_filepath == "test.xml"
 
 
 def test_invalid_client(test_client):
@@ -35,17 +37,15 @@ def test_load_document_from_url():
 
     assert document.source_url == url
     assert isinstance(document.config.existdb.client, ExistClient)
-    assert document.existdb_collection == "/db/apps/test-data"
-    assert document.existdb_filename == "dada_manifest.xml"
+    assert document.existdb_collection == "/"
+    assert document.existdb_filepath == "db/apps/test-data/dada_manifest.xml"
 
 
 def test_load_document_with_client(test_client):
-    test_client.root_collection = "/db/apps/"
-    document = Document("/test-data/dada_manifest.xml", existdb_client=test_client)
-
+    document = Document("dada_manifest.xml", existdb_client=test_client)
     assert document.config.existdb.client is test_client
-    assert document.existdb_collection == "/test-data"
-    assert document.existdb_filename == "dada_manifest.xml"
+    assert document.existdb_collection == "/db/apps/test-data"
+    assert document.existdb_filepath == "dada_manifest.xml"
 
 
 def test_store_document(test_client):
@@ -60,26 +60,15 @@ def test_store_document(test_client):
         "existdb://admin:@localhost:8080/exist/db/apps/test-data/dada_manifest.xml"
     )
     document.existdb_store(replace_existing=True)
-    assert document.existdb_collection == "/db/apps/test-data"
-    assert document.existdb_filename == "dada_manifest.xml"
+    assert document.existdb_collection == "/"
+    assert document.existdb_filepath == "db/apps/test-data/dada_manifest.xml"
 
     document.existdb_store(
-        collection="/another/collection/",
-        filename="another_name.xml",
+        collection="/another/collection",
+        filepath="another_name.xml",
     )
-    document.existdb_collection = "/another/collection/"
-    document.existdb_filename = "another_name.xml"
     with pytest.raises(DelbExistdbWriteError):
         document.existdb_store()
-
-    test_client.root_collection = "/"
-    document.existdb_collection = collection = "/db/apps/test_collection/"
-    document.existdb_filename = filename = "new_document.xml"
-    document.existdb_store(replace_existing=True)
-    assert (
-        Document(f"{collection}{filename}", existdb_client=test_client).root.local_name
-        != "test"
-    )
 
 
 @pytest.mark.usefixtures("db")
