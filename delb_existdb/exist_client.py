@@ -275,6 +275,8 @@ class ExistClient:
     :param parser_options: A named tuple from delb to define the XML parser's behaviour.
     """
 
+    __slots__ = ("__config", "http_client")
+
     def __init__(self, /, **options: ClientOptions):
         o: ClientConfig = cast("ClientConfig", DEFAULT_CLIENT_OPTIONS | options)
 
