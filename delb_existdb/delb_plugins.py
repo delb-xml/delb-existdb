@@ -52,7 +52,7 @@ def existdb_loader(source: Any, config: SimpleNamespace) -> LoaderResult:
 
     The other way is to pass a configured client as ``existdb_client`` keyword and a
     path as string or :class:`pathlib.PurePosixPath` that points to the document within
-    the client's configured :attr:`delb_existdb.ExistClient.root_collection`, hence this
+    the client's configured :attr:`delb_existdb.ExistClient.collection`, hence this
     would be an equivalent to the example above, assuming that ``https`` is available on
     the addressed host:
 
@@ -63,7 +63,7 @@ def existdb_loader(source: Any, config: SimpleNamespace) -> LoaderResult:
             host="example.org",
             port=443,
             user="",
-            root_collection="/corpus",
+            collection="/corpus",
         )
         document = delb.Document("document.xml", existdb_client=client)
 
@@ -107,7 +107,7 @@ def load_from_path(source: Any, config: SimpleNamespace) -> LoaderResult:
 
     client: ExistClient = config.existdb.client
     config.parser_options = config.parser_options._replace(encoding="UTF-8")
-    url = f"{client.root_collection_url}/{path}"
+    url = f"{client.collection_base_url}/{path}"
 
     try:
         result = web_loader(url, config, client=client.http_client)
@@ -162,7 +162,7 @@ class ExistDBExtension(DocumentMixinBase):
         The collection within an eXist-db instance where the document was fetched from.
         This property can be changed to designate another location to store to.
         """
-        return self.config.existdb.client.root_collection
+        return self.config.existdb.client.collection
 
     @existdb_collection.setter
     def existdb_collection(self, path: str):
@@ -176,7 +176,7 @@ class ExistDBExtension(DocumentMixinBase):
         the current :attr:`ExistDBExtension.existdb_collection` and
         :attr:`ExistDBExtension.existdb_filepath` in the associated eXist-db instance.
         """
-        assert self.existdb_collection == self.config.existdb.client.root_collection
+        assert self.existdb_collection == self.config.existdb.client.collection
         self.config.existdb.client.delete_document(self.existdb_filepath)
 
     @property
@@ -218,7 +218,7 @@ class ExistDBExtension(DocumentMixinBase):
             self.existdb_filepath = filepath.lstrip("/")
 
         http_client = self.config.existdb.client.http_client
-        url = f"{client.root_collection_url}/{self.existdb_filepath}"
+        url = f"{client.collection_base_url}/{self.existdb_filepath}"
 
         if not replace_existing and http_client.head(url).status_code == 200:
             raise DelbExistdbWriteError(

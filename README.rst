@@ -45,7 +45,7 @@ reuse:
     ...     port=8080,
     ...     user="admin",
     ...     password="",
-    ...     root_collection="/db/manifestos"
+    ...     collection="/db/manifestos"
     ... )
     >>> dada_manifest = Document("dada_manifest.xml", existdb_client=exist_client)
     >>> [header.full_text for header in dada_manifest.xpath("//head")]

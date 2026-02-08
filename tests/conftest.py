@@ -22,7 +22,7 @@ exist_version_is_verified = False
 
 @pytest.fixture
 def rest_base_url(test_client):
-    return f"{test_client.root_collection_url}?_wrap=no&_indent=no"
+    return f"{test_client.collection_base_url}?_wrap=no&_indent=no"
 
 
 def existdb_is_responsive(url):
@@ -75,7 +75,7 @@ def test_client(db):
         prefix="exist/",
         user="admin",
         password="",
-        root_collection="/db/apps/test-data",
+        collection="/db/apps/test-data",
     )
 
     global exist_version_is_verified
