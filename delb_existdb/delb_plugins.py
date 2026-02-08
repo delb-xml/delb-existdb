@@ -18,7 +18,7 @@ from delb_existdb.exceptions import (
     DelbExistdbReadError,
     DelbExistdbNotFound,
 )
-from delb_existdb.exist_client import _mangle_path, _validate_filename, ExistClient
+from delb_existdb.exist_client import _strip_outer_path_separators, ExistClient
 
 if TYPE_CHECKING:
     from _delb.typing import LoaderResult
@@ -90,15 +90,20 @@ def load_from_url(source: Any, config: SimpleNamespace) -> LoaderResult:
     path = PurePosixPath(urlparse(source).path).relative_to(
         PurePosixPath(f"/{config.existdb.client.prefix}")
     )
-    result = load_from_path(path, config)
+    result = load_from_path(str(path), config)
     config.source_url = source
     return result
 
 
 def load_from_path(source: Any, config: SimpleNamespace) -> LoaderResult:
-    path = _mangle_path(source) if isinstance(source, str) else source
-    if not isinstance(path, PurePosixPath):
-        raise TypeError
+    if isinstance(source, str):
+        try:
+            PurePosixPath(source)
+        except TypeError:
+            raise ValueError("Value is no path.")
+        path = _strip_outer_path_separators(source)
+    else:
+        raise TypeError("source isn't a string")
 
     client: ExistClient = config.existdb.client
     config.parser_options = config.parser_options._replace(encoding="UTF-8")
@@ -160,7 +165,7 @@ class ExistDBExtension(DocumentMixinBase):
     @existdb_collection.setter
     def existdb_collection(self, path: str):
         # FIXME this shouldn't be possible
-        self.config.existdb.collection = _mangle_path(path)
+        self.config.existdb.collection = _strip_outer_path_separators(path)
 
     @ensure_configured_client
     def existdb_delete(self):
@@ -181,10 +186,9 @@ class ExistDBExtension(DocumentMixinBase):
         """
         return self.config.existdb.filepath
 
-        _validate_filename(filename)
-        self.config.existdb.filename = filename
     @existdb_filepath.setter
     def existdb_filepath(self, filepath: str):
+        self.config.existdb.filepath = _strip_outer_path_separators(filepath)
 
     @ensure_configured_client
     def existdb_store(
@@ -206,7 +210,7 @@ class ExistDBExtension(DocumentMixinBase):
             # FIXME rather associate new client object with new collection
             collection = self.existdb_collection
         else:
-            collection = str(_mangle_path(collection))
+            client = self.config.existdb.client
 
         if filepath is not None:
             self.existdb_filepath = filepath.lstrip("/")

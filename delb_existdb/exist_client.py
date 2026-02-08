@@ -119,14 +119,8 @@ XQUERY_PAYLOAD: Final = QueryTemplate(
 content_type_is_xml: Final = re.compile(r"^(application|text)/xml(;.+)?").match
 
 
-def _mangle_path(path: str) -> PurePosixPath:
-    return PurePosixPath(path.lstrip("/"))
-
-
-def _validate_filename(filename: str):
-    as_path = PurePosixPath(filename)
-    if str(as_path) != as_path.name:
-        raise ValueError(f"Invalid filename: '{filename}'")
+def _strip_outer_path_separators(path: str) -> str:
+    return path.strip("/")
 
 
 # TODO protect from operations of deleted resources
@@ -258,8 +252,8 @@ class ExistClient:
                 "The parsers argument isn't used anymore. Parsers are derived from the "
                 "provided `parser_options`."
             )
-        _prefix = _mangle_path(prefix)
         self.__connection_props = ConnectionProps(
+        _prefix = _strip_outer_path_separators(prefix)
             transport=transport,
             user=user,
             password=password,
@@ -578,33 +572,33 @@ class ExistClient:
             DELETE_NODE_QUERY.substitute(document_id=document_id, node_id=node_id)
         )
 
-    def delete_document(self, document_path: str) -> None:
+    def delete_document(self, path: str) -> None:
         """
         Removes a document from the associated database.
 
-        :param document_path: The path pointing to the document within the root
+        :param path: The path pointing to the document within the root
                               collection.
         """
         response = self.http_client.delete(
-            f"{self.root_collection_url}/{_mangle_path(document_path)}"
+            f"{self.root_collection_url}/{_strip_outer_path_separators(path)}"
         )
         if response.status_code == 404:
-            raise DelbExistdbNotFound(f"Document '{document_path}' not found.")
+            raise DelbExistdbNotFound(f"Document '{path}' not found.")
         try:
             response.raise_for_status()
         except Exception as e:
             raise DelbExistdbWriteError("Unhandled error while deleting.") from e
 
-    def fetch_document(self, document_path: str) -> Document:
+    def fetch_document(self, path: str) -> Document:
         """
         Fetches a document from the client's configured root collection.
 
-        :param document_path: Path of the document.
+        :param path: Path of the document.
         """
         from delb import Document  # TODO future lazy import ?
 
         return Document(
-            f"{self.root_collection_url}/{_mangle_path(document_path)}",
+            f"{self.root_collection_url}/{_strip_outer_path_separators(path)}",
             existdb_client=self,
             parser_options=self.parser_options,
         )
