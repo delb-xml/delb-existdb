@@ -49,12 +49,16 @@ def test_load_document_with_client(test_client):
 
 
 def test_store_document(test_client):
-    test_client.root_collection = "/db/apps/"
     document = Document(
         "<test/>",
         existdb_client=test_client,
     )
-    document.existdb_store(collection="/test_collection/", filename="new_document.xml")
+    document.existdb_store(collection="/test_collection/", filepath="new_document.xml")
+
+    assert document.config.existdb.client is not test_client
+    assert document.config.existdb.client.root_collection == "/test_collection"
+    assert document.existdb_collection == "/test_collection"
+    assert document.existdb_filepath == "new_document.xml"
 
     document = Document(
         "existdb://admin:@localhost:8080/exist/db/apps/test-data/dada_manifest.xml"

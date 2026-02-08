@@ -13,7 +13,7 @@ def test_delete(test_client):
 @pytest.mark.usefixtures("sample_document")
 def test_document_path(test_client):
     resource = test_client.xpath("/root/list")[0]
-    assert resource.document_path == "/db/tests/sample.xml"
+    assert resource.document_path == "/db/apps/test-data/sample.xml"
 
 
 @pytest.mark.usefixtures("sample_document")

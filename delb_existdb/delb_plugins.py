@@ -145,13 +145,15 @@ class ExistDBExtension(DocumentMixinBase):
 
     @classmethod
     def _init_config(cls, config: SimpleNamespace, kwargs: dict[str, Any]):
-        client = kwargs.pop("existdb_client", None)
-        if not (client is None or isinstance(client, ExistClient)):
-            raise DelbExistdbConfigError("Invalid object passed as existdb_client.")
-        # FIXME use collection from client
-        config.existdb = SimpleNamespace(
-            client=client, collection=client.root_collection, filename=""
-        )
+        match client := kwargs.pop("existdb_client", None):
+            case None:
+                client = ExistClient()
+            case ExistClient():
+                pass
+            case _:
+                raise DelbExistdbConfigError("Invalid object passed as existdb_client.")
+
+        config.existdb = SimpleNamespace(client=client, filepath="")
         super()._init_config(config, kwargs)
 
     @property
@@ -160,7 +162,7 @@ class ExistDBExtension(DocumentMixinBase):
         The collection within an eXist-db instance where the document was fetched from.
         This property can be changed to designate another location to store to.
         """
-        return self.config.existdb.collection
+        return self.config.existdb.client.root_collection
 
     @existdb_collection.setter
     def existdb_collection(self, path: str):
