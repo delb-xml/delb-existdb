@@ -623,7 +623,7 @@ class ExistClient:
 
         :param path: Path of the document.
         """
-        from delb import Document  # TODO future lazy import ?
+        from delb import Document  # TODO future lazy import? (PEP-810)
 
         return Document(
             f"{self.collection_base_url}/{_strip_outer_path_separators(path)}",
