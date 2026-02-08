@@ -123,7 +123,9 @@ for $node in @expression return
   s:nodeID="{util:node-id($node)}"
   s:path="{DOCUMENT_PATH}"
 >{$node}</s:result>
-""".replace("DOCUMENT_PATH", DOCUMENT_PATH_OF_NODE).replace(
+""".replace(
+        "DOCUMENT_PATH", DOCUMENT_PATH_OF_NODE
+    ).replace(
         "DELB_EXISTDB_NAMESPACE", DELB_EXISTDB_NAMESPACE
     )
 )
@@ -517,12 +519,13 @@ class ExistClient:
                            supports via its RESTful API)
         :return: The query results as a list of :class:`NodeResource` objects.
         """
+        # TODO namespaces support
         results_node = self.query(XPATH_QUERY.substitute(expression=expression))
         assert results_node.namespace == EXISTDB_NAMESPACE
         assert results_node.local_name == "result"
         resources = []
         for result_node in results_node.xpath(
-            "//result", namespaces={None: DELB_EXISTDB_NAMESPACE}
+            "//result", namespaces={"": DELB_EXISTDB_NAMESPACE}
         ):
             assert isinstance(result_node, TagNodeType)
             content_node = result_node[0].detach()
@@ -569,12 +572,11 @@ class ExistClient:
     def __get_document_path_of_node(self, document_id: str) -> str:
         result_node = (
             self.query(GET_PATH_OF_RESOURCE_QUERY.substitute(document_id=document_id))
-            .xpath("//result/value", namespaces={None: EXISTDB_NAMESPACE})
+            .xpath("//result/value", namespaces={"": EXISTDB_NAMESPACE})
             .first
         )
         assert isinstance(result_node, TagNodeType)
-        path = result_node.full_text
-        return path
+        return result_node.full_text
 
     def update_node(self, node: TagNodeType, document_id: str, node_id: str):
         """
