@@ -64,9 +64,9 @@ def test_properties(test_client):
     assert test_client.password == ""
     assert test_client.port == 8080
     assert test_client.prefix == "exist"
-    assert test_client.root_collection == "/db/apps/test-data"
+    assert test_client.collection == "/db/apps/test-data"
     assert (
-        test_client.root_collection_url
+        test_client.collection_base_url
         == "http://admin:@127.0.0.1:8080/exist/rest/db/apps/test-data"
     )
     assert test_client.transport == "http"

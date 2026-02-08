@@ -56,7 +56,7 @@ def test_store_document(test_client):
     document.existdb_store(collection="/test_collection/", filepath="new_document.xml")
 
     assert document.config.existdb.client is not test_client
-    assert document.config.existdb.client.root_collection == "/test_collection"
+    assert document.config.existdb.client.collection == "/test_collection"
     assert document.existdb_collection == "/test_collection"
     assert document.existdb_filepath == "new_document.xml"
 

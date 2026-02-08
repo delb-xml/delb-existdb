@@ -6,7 +6,7 @@ import re
 import warnings
 from pathlib import PurePosixPath
 from string import Template
-from typing import TYPE_CHECKING, Any, Final, NamedTuple, Optional
+from typing import TYPE_CHECKING, cast, Final, NamedTuple, Optional, TypedDict
 from urllib.parse import urlparse
 
 import httpx
@@ -24,55 +24,76 @@ from delb_existdb.exceptions import (
 
 if TYPE_CHECKING:
     from delb import Document
-#
 
 
-# TODO use a typed dict
-class ClientConfig(NamedTuple):
-    base_url: str
-    host: str
-    parser_options: ParserOptions
-    password: str
-    port: int
-    prefix: str
-    root_collection: str
-    transport: str
-    user: str
+# constants
 
 
-class QueryResultItem(NamedTuple):
-    document_id: str
-    node_id: str
-    document_path: str
-    node: TagNodeType
-
-
-class QueryTemplate(Template):
-    delimiter = "@"
-
-
-#
-
-# TODO allow configuration with environment variables
-DEFAULT_TRANSPORT: Final = "http"
-DEFAULT_HOST: Final = "localhost"
-DEFAULT_PORT: Final = 8080
-DEFAULT_USER: Final = "admin"
-DEFAULT_PASSWORD: Final = ""
 EXISTDB_NAMESPACE: Final = "http://exist.sourceforge.net/NS/exist"
 DELB_EXISTDB_NAMESPACE: Final = "https://delb-existdb.readthedocs.io/"
 TRANSPORT_PROTOCOLS: Final = {"https": 443, "http": 80}  # the order matters!
 
 
-#
+# client configuration
 
-# QUERY TEMPLATES
-#
+
+# TODO allow configuration with environment variables
+DEFAULT_COLLECTION: Final = "/"
+DEFAULT_HOST: Final = "localhost"
+DEFAULT_PASSWORD: Final = ""
+DEFAULT_PORT: Final = 8080
+DEFAULT_PREFIX: Final = "exist"
+DEFAULT_TRANSPORT: Final = "http"
+DEFAULT_USER: Final = "admin"
+
+
+class ClientConfig(TypedDict):
+    base_url: str
+    collection: str
+    collection_base_url: str
+    host: str
+    parser_options: ParserOptions
+    password: str
+    port: int
+    prefix: str
+    transport: str
+    user: str
+
+
+class ClientOptions(TypedDict, total=False):
+    collection: str
+    host: str
+    parser_options: ParserOptions
+    password: str
+    port: int
+    prefix: str
+    transport: str
+    user: str
+
+
+DEFAULT_CLIENT_OPTIONS: Final[ClientOptions] = {
+    "collection": DEFAULT_COLLECTION,
+    "host": DEFAULT_HOST,
+    "password": DEFAULT_PASSWORD,
+    "port": DEFAULT_PORT,
+    "prefix": DEFAULT_PREFIX,
+    "transport": DEFAULT_TRANSPORT,
+    "user": DEFAULT_USER,
+}
+
+
+# query templates
+
 # for successful code deduplication, these symbols are canonically used, most relate
 # to those with the same name in the Python client code:
 # @document_id
 # @node_id
 # @serialisat
+
+
+class QueryTemplate(Template):
+    delimiter = "@"
+
 
 DOCUMENT_BY_ID: Final = "util:get-resource-by-absolute-id(@document_id)"
 DOCUMENT_PATH_OF_NODE: Final = (
@@ -123,7 +144,7 @@ XQUERY_PAYLOAD: Final = QueryTemplate(
 )
 
 
-#
+# utils
 
 
 content_type_is_xml: Final = re.compile(r"^(application|text)/xml(;.+)?").match
@@ -131,6 +152,16 @@ content_type_is_xml: Final = re.compile(r"^(application|text)/xml(;.+)?").match
 
 def _strip_outer_path_separators(path: str) -> str:
     return path.strip("/")
+
+
+# database resources
+
+
+class QueryResultItem(NamedTuple):
+    document_id: str
+    node_id: str
+    document_path: str
+    node: TagNodeType
 
 
 # TODO protect from operations of deleted resources
@@ -221,6 +252,9 @@ class NodeResource:
         return self.__document_path
 
 
+# client
+
+
 # TODO sort attributes and methods
 class ExistClient:
     """
@@ -240,56 +274,44 @@ class ExistClient:
     :param user: An optional username to authenticate.
     :param password: The accompanying password for authentication.
     :param prefix: The HTTP path prefix for the database instance.
-    :param root_collection: The path to the collection which will be used as root for
-                            all document paths.
+    :param collection: The path to the collection which will be used as root for
+                       all document paths.
     :param parser_options: A named tuple from delb to define the XML parser's behaviour.
     """
 
-    def __init__(
-        self,
-        transport: str = DEFAULT_TRANSPORT,
-        host: str = DEFAULT_HOST,
-        port: int = DEFAULT_PORT,
-        user: str = DEFAULT_USER,
-        password: str = DEFAULT_PASSWORD,
-        prefix: str = "exist",
-        root_collection: str = "/",
-        parser: Any = None,  # REMOVE eventually
-        parser_options: Optional[ParserOptions] = None,
-    ):
-        if parser is not None:
-            raise ValueError(
-                "The parsers argument isn't used anymore. Parsers are derived from the "
-                "provided `parser_options`."
+    def __init__(self, /, **options: ClientOptions):
+        o: ClientConfig = cast("ClientConfig", DEFAULT_CLIENT_OPTIONS | options)
+
+        o["prefix"] = prefix = _strip_outer_path_separators(o["prefix"])
+
+        o["base_url"] = base_url = (
+            f"{o['transport']}://{o['user']}:{o['password']}@{o['host']}:{o['port']}"
+            f"/{prefix}"
+        )
+
+        if (collection := o["collection"]) == ".":
+            o["collection"] = collection = "/"
+        else:
+            o["collection"] = collection = (
+                f"/{_strip_outer_path_separators(collection)}"
             )
 
-        _prefix = _strip_outer_path_separators(prefix)
-        if root_collection == ".":
-            root_collection = ""
-        root_collection = f"/{_strip_outer_path_separators(root_collection)}"
+        o["collection_base_url"] = f"{base_url}/rest{collection}"
 
-        self.__config: Final = ClientConfig(
-            base_url=f"{transport}://{user}:{password}@{host}:{port}/{_prefix}",
-            transport=transport,
-            host=host,
-            port=port,
-            user=user,
-            password=password,
-            prefix=_prefix,
-            root_collection=root_collection,
-            parser_options=(
-                ParserOptions(encoding="UTF-8", reduce_whitespace=True)
-                if parser_options is None
-                else parser_options._replace(encoding="UTF-8")
-            ),
-        )
+        if (parser_options := o.get("parser_options")) is None:
+            o["parser_options"] = ParserOptions(
+                encoding="UTF-8", reduce_whitespace=True
+            )
+        else:
+            o["parser_options"] = parser_options._replace(encoding="UTF-8")
+
+        self.__config: Final[ClientConfig] = o
         self.http_client: Final = httpx.Client(http2=True)
 
     @classmethod
     def from_url(
         cls,
         url: str,
-        parser=None,  # REMOVE eventually
         parser_options: Optional[ParserOptions] = None,
     ) -> ExistClient:
         """
@@ -340,14 +362,15 @@ class ExistClient:
             )
 
         return cls(
-            transport=transport,
-            host=host,
-            port=port,
-            user=user,
-            password=password,
-            prefix=prefix,
-            parser=parser,
-            parser_options=parser_options,
+            **{
+                "host": host,
+                "parser_options": parser_options,
+                "password": password,
+                "port": port,
+                "prefix": prefix,
+                "transport": transport,
+                "user": user,
+            }
         )
 
     @staticmethod
@@ -400,73 +423,75 @@ class ExistClient:
         else:
             return None
 
+    def _get_altered_client(self, **options: ClientOptions) -> ExistClient:
+        return self.__class__(**(self.__config | options))  # type: ignore
+
     @property
     def base_url(self) -> str:
         """The base URL pointing to the eXist instance."""
-        return self.__config.base_url
+        return self.__config["base_url"]
 
     @property
     def transport(self) -> str:
         """The used transport protocol."""
-        return self.__config.transport
+        return self.__config["transport"]
 
     @property
     def host(self) -> str:
         """The database hostname."""
-        return self.__config.host
+        return self.__config["host"]
 
     @property
     def port(self) -> int:
         """The database port number."""
-        return self.__config.port
+        return self.__config["port"]
 
     @property
     def user(self) -> str:
         """The user name used to connect to the database."""
-        return self.__config.user
+        return self.__config["user"]
 
     @property
     def parser_options(self) -> ParserOptions:
-        return self.__config.parser_options
+        return self.__config["parser_options"]
 
     @property
     def password(self) -> str:
         """The password used to connect to the database."""
-        return self.__config.password
+        return self.__config["password"]
 
     @property
     def prefix(self) -> str:
         """The URL prefix of the database."""
-        return str(self.__config.prefix)
+        return str(self.__config["prefix"])
 
     @property
-    def root_collection(self) -> str:
+    def collection(self) -> str:
         """
-        The root collection for database queries. The attribute can be changed on an
+        The collection for database queries. The attribute can be changed on an
         initialized client.
         """
-        return self.__config.root_collection
+        return self.__config["collection"]
 
     @property
-    def root_collection_url(self) -> str:
+    def collection_base_url(self) -> str:
         """
-        The URL pointing to the configured root collection.
+        The URL pointing to the configured collection.
         """
-        return f"{self.__config.base_url}/rest{self.__config.root_collection}"
+        return self.__config["collection_base_url"]
 
     # TODO rename to xquery
     def query(self, query_expression: str) -> TagNodeType:
         """
-        Make a database query using XQuery. The configured root collection
-        will be the starting point of the query.
+        Make a database query using XQuery. The configured collection will be the
+        starting point of the query.
 
         :param query_expression: XQuery expression.
         :return: The query result as a :class:`delb.TagNode` object.
         """
         payload = XQUERY_PAYLOAD.substitute(query=query_expression)
         response = self.http_client.post(
-            # TODO use self.rest_url?
-            self.root_collection_url,
+            self.collection_base_url,
             headers={"Content-Type": "application/xml"},
             content=payload,
         )
@@ -485,12 +510,11 @@ class ExistClient:
 
     def xpath(self, expression: str) -> list[NodeResource]:
         """
-        Retrieve a set of resources from the database using
-        an XPath expression. The configured root collection
-        will be the starting point of the query.
+        Retrieve a set of resources from the database using an XPath expression.
+        The configured collection will be the starting point of the query.
 
-        :param expression: XPath expression (whatever version your eXist
-                           instance supports via its RESTful API)
+        :param expression: XPath expression (whatever version your eXist instance
+                           supports via its RESTful API)
         :return: The query results as a list of :class:`NodeResource` objects.
         """
         results_node = self.query(XPATH_QUERY.substitute(expression=expression))
@@ -583,11 +607,10 @@ class ExistClient:
         """
         Removes a document from the associated database.
 
-        :param path: The path pointing to the document within the root
-                              collection.
+        :param path: The path pointing to the document within the collection.
         """
         response = self.http_client.delete(
-            f"{self.root_collection_url}/{_strip_outer_path_separators(path)}"
+            f"{self.collection_base_url}/{_strip_outer_path_separators(path)}"
         )
         if response.status_code == 404:
             raise DelbExistdbNotFound(f"Document '{path}' not found.")
@@ -598,14 +621,14 @@ class ExistClient:
 
     def fetch_document(self, path: str) -> Document:
         """
-        Fetches a document from the client's configured root collection.
+        Fetches a document from the client's configured collection.
 
         :param path: Path of the document.
         """
         from delb import Document  # TODO future lazy import ?
 
         return Document(
-            f"{self.root_collection_url}/{_strip_outer_path_separators(path)}",
+            f"{self.collection_base_url}/{_strip_outer_path_separators(path)}",
             existdb_client=self,
             parser_options=self.parser_options,
         )
