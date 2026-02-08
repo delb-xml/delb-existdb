@@ -112,9 +112,7 @@ def load_from_path(source: Any, config: SimpleNamespace) -> LoaderResult:
         raise DelbExistdbReadError("Could not read from database.") from e
 
     config.__dict__.pop("source_url", None)
-    # FIXME str(parent.path)
-    config.existdb.collection = path.parent
-    config.existdb.filename = path.name
+    config.existdb.filepath = path
     return result
 
 
@@ -169,37 +167,37 @@ class ExistDBExtension(DocumentMixinBase):
         """
         Deletes the document that currently resides at the location which is made up of
         the current :attr:`ExistDBExtension.existdb_collection` and
-        :attr:`ExistDBExtension.existdb_filename` in the associated eXist-db instance.
+        :attr:`ExistDBExtension.existdb_filepath` in the associated eXist-db instance.
         """
         assert self.existdb_collection == self.config.existdb.client.root_collection
-        self.config.existdb.client.delete_document(self.existdb_filename)
+        self.config.existdb.client.delete_document(self.existdb_filepath)
 
     @property
-    def existdb_filename(self) -> str:
+    def existdb_filepath(self) -> str:
         """
-        The filename within the eXist-db instance and collection where the document was
+        The filepath within the eXist-db instance and collection where the document was
         fetched from.
         This property can be changed to designate another location to store to.
         """
-        return self.config.existdb.filename
+        return self.config.existdb.filepath
 
-    @existdb_filename.setter
-    def existdb_filename(self, filename: str):
         _validate_filename(filename)
         self.config.existdb.filename = filename
+    @existdb_filepath.setter
+    def existdb_filepath(self, filepath: str):
 
     @ensure_configured_client
     def existdb_store(
         self,
         collection: Optional[str] = None,
-        filename: Optional[str] = None,
+        filepath: Optional[str] = None,
         replace_existing: bool = False,
     ):
         """
         Stores the current state of the document in the associated eXist-db instance.
 
         :param collection: An alternate collection to save into.
-        :param filename: An alternate name to store the document.
+        :param filepath: An alternate path to store the document.
         :param replace_existing: Allows to overwrite existing documents.
         """
 
@@ -209,14 +207,12 @@ class ExistDBExtension(DocumentMixinBase):
             collection = self.existdb_collection
         else:
             collection = str(_mangle_path(collection))
-        if filename is None:
-            filename = self.existdb_filename
-        else:
-            _validate_filename(filename)
+
+        if filepath is not None:
+            self.existdb_filepath = filepath.lstrip("/")
 
         http_client = self.config.existdb.client.http_client
-        # FIXME collection is redundant
-        url = f"{client.root_collection_url}/{collection}/{filename}"
+        url = f"{client.root_collection_url}/{self.existdb_filepath}"
 
         if not replace_existing and http_client.head(url).status_code == 200:
             raise DelbExistdbWriteError(

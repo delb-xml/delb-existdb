@@ -62,7 +62,7 @@ def docker_compose_file():
 @pytest.fixture
 def sample_document(test_client):
     document = Document(SAMPLE_DOCUMENT, existdb_client=test_client)
-    document.existdb_store(filename="sample.xml", replace_existing=True)
+    document.existdb_store(filepath="sample.xml", replace_existing=True)
     return document
 
 
