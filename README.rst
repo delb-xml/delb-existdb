@@ -20,7 +20,7 @@ documents and nodes.
 It's available at the Python Package Index as delb-existdb_ package.
 
 ``delb-existdb`` allows you to access individual documents from the database using
-a :class:`delb.Document` object, either by simply passing a URL:
+a ``delb.Document`` object, either by simply passing a URL:
 
 .. code-block:: python
 
