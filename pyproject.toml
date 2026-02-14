@@ -12,21 +12,21 @@ authors = [
     { name = "Frank Sachsenheim", email = "funkyfuture@riseup.net"},
 ]
 readme = "README.rst"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE.txt"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
     "Natural Language :: English",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3.9",
+    "Topic :: Text Processing :: Markup :: XML",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
-    "Topic :: Text Processing :: Markup :: XML",
 ]
 keywords = ["xml", "exist-db", "client", "delb"]
 dependencies = [
@@ -35,9 +35,6 @@ dependencies = [
 
 [project.entry-points.delb]
 delb-existdb = "delb_existdb.delb_plugins"
-
-[project.license]
-file = "LICENSE.txt"
 
 [project.urls]
 Documentation = "https://delb-existdb.readthedocs.io/"
@@ -113,6 +110,7 @@ EXIST_VERSION = "{matrix:existdb_version}"
 existdb_version = [
     "4.11.2",
     "5.5.2",
+    # keep [tool.hatch.envs.test-wheel.env-vars].EXIST_VERSION in sync w/ this:
     "6.4.0"
 ]
 [tool.hatch.envs.tests.scripts]
@@ -123,6 +121,17 @@ coverage-report = """
         --cov=delb_existdb \
         tests
 """
+
+[tool.hatch.envs.test-wheel]
+template = "tests"
+skip-install = true
+extra-dependencies = [
+    "delb-existdb @ {root:uri}/{env:WHEEL_PATH}",
+]
+[tool.hatch.envs.test-wheel.env-vars]
+EXIST_VERSION = "6.4.0"
+[tool.hatch.envs.test-wheel.scripts]
+check = "python -m pytest tests"
 
 
 [tool.pytest.ini_options]

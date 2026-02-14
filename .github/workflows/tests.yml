@@ -15,7 +15,6 @@ name: quality checks
 
 jobs:
 
-
   other-quality-checks:
     runs-on: ubuntu-latest
     strategy:
@@ -35,26 +34,58 @@ jobs:
       - uses: extractions/setup-just@v3
       - run: just ${{ matrix.target }}
 
-  tests:
+
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      python-versions: >-
+        ${{ steps.baipp.outputs.supported_python_classifiers_json_array }}
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - uses: hynek/build-and-inspect-python-package@v2
+        id: baipp
+
+  unit-tests:
+    needs: ["build"]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: extractions/setup-just@v3
+      - uses: actions/download-artifact@v7
+        with:
+          name: Packages
+          path: dist
+      - run: tar xf dist/*.tar.gz --strip-components=1
+      - uses: actions/setup-python@v6
+        with:
+          cache: pip
+          python-version: 3.x
+      - run: just pytest
+
+  compatibility-tests:
+    needs: ["build", "unit-tests"]
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version:
-          - "3.9"
-          - "3.10"
-          - "3.11"
-          - "3.12"
-          - "3.13"
-          - "3.14"
+        python-version: ${{ fromJson(needs.build.outputs.python-versions) }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           ref: ${{ inputs.ref || github.ref }}
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           cache: pip
           python-version: ${{ matrix.python-version }}
       - uses: extractions/setup-just@v3
-      - run: just pytest
+      - uses: actions/download-artifact@v7
+        with:
+          name: Packages
+          path: dist
+      - run: |
+          rm -r delb_existdb
+          test "$(find dist -name 'delb_existdb-*.whl' | wc -l)" -eq 1
+          just test-wheel "$(find dist -name 'delb_existdb-*.whl')"
 
 ...
