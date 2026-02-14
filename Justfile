@@ -33,3 +33,7 @@ serve-docs:
     pipx run hatch run docs:serve
 
 tests: black lint mypy pytest doctest
+
+# run the testsuite against a wheel (installed from $WHEEL_PATH); intended to run on a CI platform
+test-wheel $WHEEL_PATH:
+    pipx run hatch run test-wheel:check
