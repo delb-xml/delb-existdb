@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "delb-existdb"
-version = "0.4-rc1"
+version = "0.4"
 description = "A Python database interface for eXist-db"
 authors = [
     { name = "Theodor Costea", email = "theo.costea@gmail.com"},
@@ -30,7 +30,7 @@ classifiers = [
 ]
 keywords = ["xml", "exist-db", "client", "delb"]
 dependencies = [
-    "delb[web-loader]~=0.6-rc1"
+    "delb[web-loader]~=0.6"
 ]
 
 [project.entry-points.delb]
@@ -102,7 +102,7 @@ check = "mypy --check-untyped-defs delb_existdb"
 dependencies = [
     "pytest-cov",
     "pytest-docker",
-    "delb-reference-plugins~=0.6-rc0",
+    "delb-reference-plugins~=0.6",
 ]
 [tool.hatch.envs.tests.env-vars]
 EXIST_VERSION = "{matrix:existdb_version}"
