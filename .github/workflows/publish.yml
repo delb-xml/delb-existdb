@@ -1,0 +1,47 @@
+---
+
+name: Publish delb
+on:
+  push:
+    tags: ["*"]
+
+
+jobs:
+  build-and-test:
+    uses: ./.github/workflows/tests.yml
+    with:
+      ref: ${{ github.ref }}
+
+  pypi:
+    name: Publish to the cheeseshop
+    needs: ["build-and-test"]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/delb-existdb
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Download package
+        uses: actions/download-artifact@v7
+        with:
+          name: Packages
+          path: dist
+      - name: Upload package to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+# TODO
+#  github:
+#    name: Create a Github release
+#    needs: ["build-and-test"]
+#    runs-on: ubuntu-latest
+#    permissions:
+#      contents: write
+#
+#    steps:
+#      - uses: actions/checkout@v6
+#        with:
+#          ref: ${{ github.ref }}
+
+...
