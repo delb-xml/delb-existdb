@@ -1,6 +1,6 @@
 ---
 
-name: Publish delb
+name: Publish delb-existdb
 "on":
   push:
     tags: ["*"]
